@@ -1,21 +1,48 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+
+import { useQuery, useQueryClient } from "react-query";
+
 
 import { PostDetail } from "./PostDetail";
 const maxPostPage = 10;
 
-async function fetchPosts() {
+async function fetchPosts(pageNum) {
   const response = await fetch(
-    "https://jsonplaceholder.typicode.com/posts?_limit=10&_page=0"
+    `https://jsonplaceholder.typicode.com/posts?_limit=10&_page=${pageNum}`
   );
   return response.json();
 }
 
 export function Posts() {
-  const [currentPage, setCurrentPage] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
   const [selectedPost, setSelectedPost] = useState(null);
 
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (currentPage < maxPostPage) {
+      const nextPage = currentPage + 1;
+      queryClient.prefetchQuery(
+        ["posts", nextPage],
+        () => fetchPosts(nextPage),
+      );
+    }
+  }, [currentPage, queryClient]);
+
+
   // replace with useQuery
-  const data = [];
+  const { data, isError, isFetching, isLoading } = useQuery(
+    ["posts", currentPage],
+    () => fetchPosts(currentPage),
+    {
+      staleTime: 2000,
+      keepPreviousData: true
+    }
+  );
+  // if (!data) return <div>loading..</div>;
+  if (isLoading) return <div>loading..</div>;
+  if (isError) return <div>Error</div>;
+  // if (isFetching) return <div>Fetching the data...</div>;
 
   return (
     <>
@@ -31,11 +58,17 @@ export function Posts() {
         ))}
       </ul>
       <div className="pages">
-        <button disabled onClick={() => {}}>
+        <button
+          disabled={currentPage <= 1}
+          onClick={() => { setCurrentPage((previousVal) => previousVal - 1) }}
+        >
           Previous page
         </button>
-        <span>Page {currentPage + 1}</span>
-        <button disabled onClick={() => {}}>
+        <span>Page {currentPage}</span>
+        <button
+          disabled={currentPage >= maxPostPage}
+          onClick={() => { setCurrentPage((previousVal) => previousVal + 1) }}
+        >
           Next page
         </button>
       </div>
